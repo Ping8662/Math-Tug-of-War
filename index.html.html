@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>數感大拔河 Math Tug-of-War</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:radial-gradient(circle at 50% 0,#1e2a5a,#0b1020 70%);color:#f1f5f9;min-height:100vh;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
+.card{transition:transform .15s}.card:hover{transform:translateY(-4px) scale(1.03)}
+.opt{font-size:clamp(1.6rem,5vw,2.6rem);font-weight:800;transition:transform .1s}
+.opt:active{transform:scale(.95)}
+.opt:disabled{opacity:.45}
+.ok{background:#16a34a!important;animation:hop .4s}
+.bad{background:#dc2626!important;animation:shk .4s}
+@keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-10px) scale(1.06)}}
+@keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-8px)}80%{transform:translateX(8px)}}
+#knot{transition:left .35s cubic-bezier(.3,1.6,.5,1)}
+#ropeB,#ropeR{transition:width .35s cubic-bezier(.3,1.6,.5,1)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="max-w-5xl mx-auto px-3 py-4">
+  <h1 class="text-center text-3xl sm:text-4xl font-black tracking-wide">🪢 數感大拔河 <span class="text-lg font-semibold text-slate-400">Math Tug-of-War</span></h1>
+
+  <!-- 關卡選擇 -->
+  <section id="menu" class="mt-5">
+    <p class="text-center text-slate-300 mb-3">選擇關卡，先看戰前複習，再開始對戰！</p>
+    <div id="cards" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"></div>
+    <p class="text-center text-slate-400 text-sm mt-5">鍵盤：藍隊 A / S / D　紅隊 J / K / L　（觸控螢幕可直接點選）</p>
+  </section>
+
+  <!-- 對戰區 -->
+  <section id="arena" class="hidden mt-3">
+    <div class="flex items-center justify-between gap-2 bg-slate-800/70 rounded-2xl px-4 py-2">
+      <button id="quit" class="text-sm bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-1">← 關卡</button>
+      <div class="text-center">
+        <div id="lvlName" class="text-sm text-slate-300"></div>
+        <div class="text-lg font-bold"><span id="qWrap">題數 <span id="qNo">1</span>/15　</span>⏱ <span id="time">90</span>s</div>
+      </div>
+      <div class="w-14"></div>
+    </div>
+
+    <div id="monster" class="hidden mt-4 text-center">
+      <div id="monEmo" class="text-7xl inline-block">👹</div>
+      <div class="max-w-md mx-auto h-5 rounded-full bg-slate-800 border-2 border-slate-600 overflow-hidden mt-2"><div id="hpBar" class="h-full bg-red-500" style="width:100%;transition:width .3s"></div></div>
+      <div id="hpTxt" class="text-sm text-slate-300 mt-1"></div>
+      <div class="max-w-md mx-auto h-1.5 rounded bg-slate-800 mt-2 overflow-hidden"><div id="idleBar" class="h-full bg-amber-400" style="width:100%;transition:width 1s linear"></div></div>
+      <div id="monMsg" class="text-sm text-amber-300 h-5 mt-1"></div>
+    </div>
+
+    <div id="ropeBox" class="mt-4 px-1">
+      <div class="flex justify-between text-xs font-bold mb-1"><span class="text-sky-400">藍隊勝 ◀ +5</span><span class="text-rose-400">+5 ▶ 紅隊勝</span></div>
+      <div class="relative h-14 rounded-full bg-slate-800 overflow-hidden border-2 border-slate-600">
+        <div id="ropeB" class="absolute left-0 top-1/2 -translate-y-1/2 h-3 bg-sky-500" style="width:50%"></div>
+        <div id="ropeR" class="absolute right-0 top-1/2 -translate-y-1/2 h-3 bg-rose-500" style="width:50%"></div>
+        <div class="absolute left-1/2 top-0 h-full w-0.5 bg-white/60"></div>
+        <div id="knot" class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-amber-400 border-4 border-white text-2xl flex items-center justify-center shadow-lg" style="left:50%">🚩</div>
+      </div>
+      <div id="posTxt" class="text-center text-sm text-slate-300 mt-1">勢均力敵</div>
+    </div>
+
+    <div id="panels" class="grid grid-cols-2 gap-3 mt-4">
+      <div class="rounded-2xl p-3 bg-sky-950 border-2 border-sky-500">
+        <div class="flex justify-between font-bold text-sky-300"><span id="p0name">🔵 玩家一 · 藍隊</span><span>答對 <span id="sc0">0</span></span></div>
+        <div id="hint0" class="text-center text-lg sm:text-2xl font-bold my-3"></div>
+        <div id="opts0" class="grid gap-2"></div>
+      </div>
+      <div id="panel1" class="rounded-2xl p-3 bg-rose-950 border-2 border-rose-500">
+        <div class="flex justify-between font-bold text-rose-300"><span>🔴 玩家二 · 紅隊</span><span>答對 <span id="sc1">0</span></span></div>
+        <div id="hint1" class="text-center text-lg sm:text-2xl font-bold my-3"></div>
+        <div id="opts1" class="grid gap-2"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- 戰前複習 -->
+<div id="review" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+  <div class="bg-slate-800 rounded-3xl p-6 max-w-lg w-full border-2 border-amber-400">
+    <h2 class="text-2xl font-black text-amber-300 text-center">📖 戰前複習</h2>
+    <p id="revTitle" class="text-center mt-2 text-slate-200"></p>
+    <div id="revList" class="flex flex-wrap justify-center gap-2 my-4"></div>
+    <div class="flex gap-3">
+      <button id="revBack" class="flex-1 bg-slate-600 hover:bg-slate-500 rounded-xl py-3 font-bold">返回</button>
+      <button id="revSolo" class="flex-1 bg-violet-500 hover:bg-violet-400 rounded-xl py-3 font-black">單人打怪 👹</button>
+      <button id="revGo" class="flex-1 bg-emerald-500 hover:bg-emerald-400 rounded-xl py-3 font-black">雙人對戰 ⚔️</button>
+    </div>
+  </div>
+</div>
+
+<!-- 結算 -->
+<div id="result" class="hidden fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+  <div class="bg-slate-800 rounded-3xl p-6 max-w-md w-full text-center border-2 border-amber-400">
+    <div class="text-6xl">🏆</div>
+    <h2 id="winTxt" class="text-3xl font-black mt-2"></h2>
+    <p id="winWhy" class="text-slate-300 mt-1"></p>
+    <div class="grid grid-cols-2 gap-3 my-4">
+      <div class="bg-sky-950 rounded-xl p-3"><div id="r0n" class="text-sky-300 font-bold">藍隊</div><div id="rs0" class="text-2xl font-black"></div></div>
+      <div class="bg-rose-950 rounded-xl p-3"><div id="r1n" class="text-rose-300 font-bold">紅隊</div><div id="rs1" class="text-2xl font-black"></div></div>
+    </div>
+    <div class="flex gap-3">
+      <button id="again" class="flex-1 bg-emerald-500 hover:bg-emerald-400 rounded-xl py-3 font-black">再玩一次</button>
+      <button id="toMenu" class="flex-1 bg-slate-600 hover:bg-slate-500 rounded-xl py-3 font-bold">回關卡選單</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const range=(a,b)=>Array.from({length:b-a+1},(_,i)=>a+i);
+const primes=range(2,100).filter(n=>{for(let i=2;i*i<=n;i++)if(n%i===0)return false;return true});
+const mult=k=>range(1,Math.floor(100/k)).map(i=>i*k);
+const LEVELS=[
+ {name:"1~100 的質數",ask:"請選出質數",ans:primes,icon:"🔢",
+  pool:range(9,99).filter(n=>!primes.includes(n)&&n%2&&n%5)},
+ ...[13,17,19,23].map(k=>({name:`100 以內 ${k} 的倍數`,ask:`請選出 ${k} 的倍數`,ans:mult(k),icon:"✖️",k}))
+];
+const MAXQ=15,MAXPOS=5,TIME=90;
+const SOLO_TIME=120,DMG=20,HEAL_WRONG=15,HEAL_SLOW=5,IDLE=6; // 單人模式參數
+const MONS=['👹','👾','🐉','🦖','👻'];
+let lv=null,S={};
+
+/* ---------- 音效 ---------- */
+let AC=null;
+function tone(f,d,type='sine',t0=0,v=.25){
+  try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+  const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+t0;
+  o.type=type;o.frequency.value=f;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);
+  o.connect(g).connect(AC.destination);o.start(t);o.stop(t+d)}catch(e){}
+}
+const sndOk=()=>{tone(880,.18);tone(1320,.3,'sine',.12)};
+const sndBad=()=>{tone(180,.15,'square',0,.15);tone(180,.15,'square',.2,.15)};
+const sndWin=()=>[523,659,784,1047,784,1047,1318].forEach((f,i)=>tone(f,.28,'triangle',i*.14,.3));
+
+/* ---------- 關卡卡片 ---------- */
+LEVELS.forEach((L,i)=>{
+  const b=document.createElement('button');
+  b.className='card rounded-2xl p-4 text-center font-bold border-2 border-indigo-400 bg-indigo-900/60';
+  b.innerHTML=`<div class="text-4xl">${L.icon}</div><div class="text-sm text-indigo-200 mt-1">第 ${i+1} 關</div><div class="mt-1">${L.name}</div>`;
+  b.onclick=()=>openReview(i);
+  $('cards').appendChild(b);
+});
+
+function openReview(i){
+  lv=i;const L=LEVELS[i];AC=AC||null;
+  $('revTitle').textContent=`${L.name}（共 ${L.ans.length} 個）`;
+  $('revList').innerHTML=L.ans.map(n=>`<span class="bg-amber-400 text-slate-900 font-black rounded-lg px-3 py-1 text-lg">${n}</span>`).join('');
+  $('review').classList.remove('hidden');
+}
+$('revBack').onclick=()=>$('review').classList.add('hidden');
+$('revGo').onclick=()=>{$('review').classList.add('hidden');start('duo')};
+$('revSolo').onclick=()=>{$('review').classList.add('hidden');start('solo')};
+
+/* ---------- 遊戲 ---------- */
+const shuffle=a=>a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+function distractors(L,correct){
+  let pool;
+  if(L.pool)pool=L.pool;
+  else{const near=new Set();L.ans.forEach(m=>[-3,-2,-1,1,2,3].forEach(d=>{const x=m+d;if(x>=1&&x<=100&&x%L.k)near.add(x)}));pool=[...near]}
+  return shuffle(pool).slice(0,2);
+}
+function newQ(p){
+  const L=LEVELS[lv],c=pick(L.ans),opts=shuffle([c,...distractors(L,c)]);
+  S.q[p]={c,opts};
+  $('hint'+p).textContent=L.ask;
+  const box=$('opts'+p);box.innerHTML='';
+  opts.forEach((n,i)=>{
+    const b=document.createElement('button');
+    b.className='opt rounded-2xl py-4 '+(p?'bg-rose-600 hover:bg-rose-500':'bg-sky-600 hover:bg-sky-500');
+    b.textContent=n;b.onclick=()=>answer(p,i);box.appendChild(b);
+  });
+}
+let mode='duo';
+function start(m){
+  mode=m||mode;clearInterval(S.timer);
+  const solo=mode==='solo';
+  S={mode,pos:0,cnt:[0,0],ok:[0,0],q:[],frozen:[false,false],t:solo?SOLO_TIME:TIME,run:true,hp:100,idle:0};
+  $('menu').classList.add('hidden');$('arena').classList.remove('hidden');$('result').classList.add('hidden');
+  $('lvlName').textContent=LEVELS[lv].name+(solo?'・單人打怪':'・雙人對戰');
+  $('ropeBox').classList.toggle('hidden',solo);$('monster').classList.toggle('hidden',!solo);
+  $('panel1').classList.toggle('hidden',solo);$('qWrap').classList.toggle('hidden',solo);
+  $('panels').className=solo?'grid grid-cols-1 max-w-md mx-auto gap-3 mt-4':'grid grid-cols-2 gap-3 mt-4';
+  $('p0name').textContent=solo?'🧑‍🎓 挑戰者':'🔵 玩家一 · 藍隊';
+  $('r0n').textContent=solo?'答題':'藍隊';$('r1n').textContent=solo?'用時':'紅隊';
+  $('monEmo').textContent=MONS[lv];
+  newQ(0);if(!solo)newQ(1);render();
+  S.timer=setInterval(()=>{
+    S.t--;$('time').textContent=S.t;
+    if(solo&&!S.frozen[0]&&S.run){S.idle++;
+      if(S.idle>=IDLE){S.idle=0;S.hp=Math.min(100,S.hp+HEAL_SLOW);hit('🐌 太慢了！怪物回血 +'+HEAL_SLOW,false);tone(300,.15,'square',0,.1)}
+      renderSolo()}
+    if(S.t<=0)finish('time')},1000);
+}
+function render(){
+  if(S.mode==='solo')return renderSolo();
+  const k=50+S.pos*9;
+  $('knot').style.left=k+'%';$('ropeB').style.width=k+'%';$('ropeR').style.width=(100-k)+'%';
+  $('posTxt').textContent=S.pos===0?'勢均力敵':(S.pos<0?`藍隊領先 ${-S.pos} 格`:`紅隊領先 ${S.pos} 格`);
+  $('sc0').textContent=S.ok[0];$('sc1').textContent=S.ok[1];
+  $('qNo').textContent=Math.min(MAXQ,Math.max(S.cnt[0],S.cnt[1])+1);
+  $('time').textContent=S.t;
+}
+function renderSolo(){
+  $('hpBar').style.width=S.hp+'%';
+  $('hpTxt').textContent=`怪物血量 ${S.hp}/100`;
+  $('idleBar').style.width=Math.max(0,(1-S.idle/IDLE)*100)+'%';
+  $('sc0').textContent=S.ok[0];$('time').textContent=S.t;
+}
+function hit(msg,good){
+  $('monMsg').textContent=msg;
+  const m=$('monEmo');m.style.animation='none';m.offsetHeight;
+  m.style.animation=(good?'shk':'hop')+' .4s';
+}
+function answerSolo(i){
+  if(!S.run||S.frozen[0])return;
+  const q=S.q[0],good=q.opts[i]===q.c,btns=$('opts0').children;
+  S.cnt[0]++;S.idle=0;
+  if(good){S.ok[0]++;S.hp=Math.max(0,S.hp-DMG);sndOk();btns[i].classList.add('ok');hit('💥 命中！怪物 -'+DMG,true)}
+  else{S.hp=Math.min(100,S.hp+HEAL_WRONG);sndBad();btns[i].classList.add('bad');S.frozen[0]=true;[...btns].forEach(b=>b.disabled=true);hit('💚 答錯了！怪物回血 +'+HEAL_WRONG,false)}
+  renderSolo();
+  if(S.hp<=0)return finish('win');
+  setTimeout(()=>{S.frozen[0]=false;if(S.run)newQ(0)},good?350:1000);
+}
+function finishSolo(why){
+  const win=why==='win';
+  $('winTxt').textContent=win?'🎉 擊敗怪物！':'💀 挑戰失敗';
+  $('winTxt').className='text-3xl font-black mt-2 '+(win?'text-emerald-400':'text-slate-300');
+  $('winWhy').textContent=win?'你成功把怪物打倒了！':'時間到了，怪物還有 '+S.hp+' 點血，再挑戰一次吧！';
+  $('rs0').textContent=`答對 ${S.ok[0]} / ${S.cnt[0]}`;
+  $('rs1').textContent=`${SOLO_TIME-S.t} 秒`;
+  win?sndWin():sndBad();
+  setTimeout(()=>$('result').classList.remove('hidden'),500);
+}
+function answer(p,i){
+  if(S.mode==='solo')return p===0?answerSolo(i):0;
+  if(!S.run||S.frozen[p])return;
+  const q=S.q[p],good=q.opts[i]===q.c,btns=$('opts'+p).children;
+  S.cnt[p]++;
+  const dir=p===0?-1:1; // 藍隊往左(負)，紅隊往右(正)
+  if(good){S.ok[p]++;S.pos+=dir;sndOk();btns[i].classList.add('ok')}
+  else{S.pos-=dir;sndBad();btns[i].classList.add('bad');S.frozen[p]=true;[...btns].forEach(b=>b.disabled=true)}
+  S.pos=Math.max(-MAXPOS,Math.min(MAXPOS,S.pos));
+  render();
+  if(Math.abs(S.pos)>=MAXPOS)return finish('rope');
+  if(S.cnt[0]>=MAXQ&&S.cnt[1]>=MAXQ)return setTimeout(()=>finish('done'),400);
+  const delay=good?350:1000;
+  setTimeout(()=>{
+    S.frozen[p]=false;
+    if(!S.run)return;
+    if(S.cnt[p]>=MAXQ){$('hint'+p).textContent='✅ 已完成 15 題';$('opts'+p).innerHTML='';return}
+    newQ(p);
+  },delay);
+}
+function finish(why){
+  if(!S.run)return;S.run=false;clearInterval(S.timer);
+  if(S.mode==='solo')return finishSolo(why);
+  let w=S.pos<0?0:S.pos>0?1:-1;
+  $('winTxt').textContent=w<0?'🤝 平手！':(w===0?'🔵 藍隊獲勝！':'🔴 紅隊獲勝！');
+  $('winTxt').className='text-3xl font-black mt-2 '+(w<0?'text-amber-300':w===0?'text-sky-400':'text-rose-400');
+  $('winWhy').textContent=why==='rope'?'繩結被拉到臨界點，提前分出勝負！':why==='time'?'時間到，依繩結位置判定。':'15 題完成，依繩結位置判定。';
+  [0,1].forEach(p=>$('rs'+p).textContent=`答對 ${S.ok[p]} / ${S.cnt[p]}`);
+  $('winWhy').textContent+=`　最終繩位：${S.pos===0?'正中央':(S.pos<0?'藍方':'紅方')+Math.abs(S.pos)+'格'}`;
+  sndWin();
+  setTimeout(()=>$('result').classList.remove('hidden'),500);
+}
+$('again').onclick=()=>start();
+$('toMenu').onclick=()=>{$('result').classList.add('hidden');$('arena').classList.add('hidden');$('menu').classList.remove('hidden')};
+$('quit').onclick=()=>{S.run=false;clearInterval(S.timer);$('arena').classList.add('hidden');$('menu').classList.remove('hidden')};
+
+document.addEventListener('keydown',e=>{
+  if(!S.run)return;
+  const k=e.key.toLowerCase(),m={a:[0,0],s:[0,1],d:[0,2],j:[1,0],k:[1,1],l:[1,2]}[k];
+  if(m)answer(m[0],m[1]);
+});
+</script>
+</body>
+</html>
