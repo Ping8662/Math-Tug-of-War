@@ -1,283 +1,297 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>數感大拔河 Math Tug-of-War</title>
-<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>數學理財金庫</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{colors:{ink:'#6B3F1D',sand:'#F3B9B9',cream:'#FFF3EA',leaf:'#D9ECB8',lake:'#B7E0EE'}}}}</script>
 <style>
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{background:radial-gradient(circle at 50% 0,#1e2a5a,#0b1020 70%);color:#f1f5f9;min-height:100vh;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
-.card{transition:transform .15s}.card:hover{transform:translateY(-4px) scale(1.03)}
-.opt{font-size:clamp(1.6rem,5vw,2.6rem);font-weight:800;transition:transform .1s}
-.opt:active{transform:scale(.95)}
-.opt:disabled{opacity:.45}
-.ok{background:#16a34a!important;animation:hop .4s}
-.bad{background:#dc2626!important;animation:shk .4s}
-@keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-10px) scale(1.06)}}
-@keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-8px)}80%{transform:translateX(8px)}}
-#knot{transition:left .35s cubic-bezier(.3,1.6,.5,1)}
-#ropeB,#ropeR{transition:width .35s cubic-bezier(.3,1.6,.5,1)}
-.hidden{display:none!important}
+body{background:linear-gradient(#F9D6D6 0,#FFF3EA 260px) no-repeat #FFF3EA;min-height:100vh;color:#6B3F1D;font-family:"Noto Sans TC",system-ui,sans-serif}
+.card{background:#fff;border:2px solid #F3B9B9;border-radius:1.25rem;box-shadow:0 4px 0 #F3B9B9}
+.btn{border-radius:.9rem;font-weight:900;padding:.65rem 1rem;transition:transform .12s}
+.btn:active{transform:translateY(2px)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.up{color:#15803d}.down{color:#dc2626}
+input{border:2px solid #F3B9B9;border-radius:.7rem;padding:.45rem .7rem;background:#FFF3EA;color:#6B3F1D;min-width:0}
+input:focus,button:focus-visible{outline:3px solid #B7E0EE}
 </style>
 </head>
 <body>
-<div class="max-w-5xl mx-auto px-3 py-4">
-  <h1 class="text-center text-3xl sm:text-4xl font-black tracking-wide">🪢 數感大拔河 <span class="text-lg font-semibold text-slate-400">Math Tug-of-War</span></h1>
+<div id="app" class="max-w-5xl mx-auto p-4"></div>
 
-  <!-- 關卡選擇 -->
-  <section id="menu" class="mt-5">
-    <p class="text-center text-slate-300 mb-3">選擇關卡，先看戰前複習，再開始對戰！</p>
-    <div id="cards" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"></div>
-    <p class="text-center text-slate-400 text-sm mt-5">鍵盤：藍隊 A / S / D　紅隊 J / K / L　（觸控螢幕可直接點選）</p>
-  </section>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getFirestore,doc,getDoc,setDoc,updateDoc,onSnapshot,increment} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  <!-- 對戰區 -->
-  <section id="arena" class="hidden mt-3">
-    <div class="flex items-center justify-between gap-2 bg-slate-800/70 rounded-2xl px-4 py-2">
-      <button id="quit" class="text-sm bg-slate-700 hover:bg-slate-600 rounded-lg px-3 py-1">← 關卡</button>
-      <div class="text-center">
-        <div id="lvlName" class="text-sm text-slate-300"></div>
-        <div class="text-lg font-bold"><span id="qWrap">題數 <span id="qNo">1</span>/15　</span>⏱ <span id="time">90</span>s</div>
-      </div>
-      <div class="w-14"></div>
-    </div>
+/* ===== 1. 貼上你的 Firebase 設定（Firebase 主控台 → 專案設定 → 一般 → 您的應用程式）===== */
+const firebaseConfig={
+  apiKey:"AIzaSyAqF5XPxnezG16h3i6qsqWLSczVqtN6tlU",
+  authDomain:"financial-expert-6af20.firebaseapp.com",
+  projectId:"financial-expert-6af20",
+  storageBucket:"financial-expert-6af20.firebasestorage.app",
+  messagingSenderId:"791108878369",
+  appId:"1:791108878369:web:e38ac2ec00b20a99336360"
+};
+/* ===== 2. 系統參數 ===== */
+const TEACHER_KEY="0602", DEF_PIN="0000", WAGE=100, OT_MAX=2, N=10;
+const CLOUD=!firebaseConfig.apiKey.startsWith("YOUR");
+/* 週次劇本：t=時期 b=定存% d=債券% s=股市% n=給學生的心得 */
+const R=[
+{t:"網路泡沫殘局 (2000)",b:.03,d:.1,s:-5,n:"剛開局就遇到空頭下跌，體驗「股票買了會賠錢」！"},
+{t:"打底期與緩步回穩",b:.03,d:.1,s:1.5,n:"市場止跌，存股族開始分批佈局。"},
+{t:"金融海嘯驚魂 (2008)",b:.02,d:.05,s:-12,n:"黑色星期五！大盤重挫，資產縮水的恐慌。"},
+{t:"海嘯後復甦與智慧型手機起飛",b:.03,d:.1,s:8.5,n:"危機就是轉機！跌深後強力反彈，勇敢加碼的人賺翻。"},
+{t:"台積電與蘋概股黃金年代",b:.03,d:.15,s:4,n:"長期抱緊績優股的威力，資產穩健向上。"},
+{t:"中美貿易戰與疫情震盪 (2020)",b:.02,d:.1,s:-6.5,n:"突發利空急跌，隨後又快速彈回。"},
+{t:"通膨升息循環 (2022)",b:.05,d:.2,s:-3,n:"定存與債券利率調高，保底資產變得迷人！"},
+{t:"升息尾聲，科技股醞釀",b:.05,d:.2,s:5,n:"熬過升息痛苦期，市場開始預期降息。"},
+{t:"AI 狂潮大爆發 (2023)",b:.04,d:.15,s:15,n:"生成式 AI 帶動大盤創歷史新高！"},
+{t:"AI 應用落地，最終決戰 (2024)",b:.04,d:.15,s:6,n:"封關結算！有人靠 AI 股賺大錢，有人選擇定存穩穩拿保底。"}];
+const STOCK_CAP=0.6; /* 股市最多占總資產 60% */
+const TERMS=[[3,"半年期"],[6,"一年期"],[10,"兩年期"]];
+const MULT={dep:[3,5,8],bond:[2,3,4]}; /* 定存／債券利率 = 當週基準 × 倍數；期數越長利率越高 */
 
-    <div id="monster" class="hidden mt-4 text-center">
-      <div id="monEmo" class="text-7xl inline-block">👹</div>
-      <div class="max-w-md mx-auto h-5 rounded-full bg-slate-800 border-2 border-slate-600 overflow-hidden mt-2"><div id="hpBar" class="h-full bg-red-500" style="width:100%;transition:width .3s"></div></div>
-      <div id="hpTxt" class="text-sm text-slate-300 mt-1"></div>
-      <div class="max-w-md mx-auto h-1.5 rounded bg-slate-800 mt-2 overflow-hidden"><div id="idleBar" class="h-full bg-amber-400" style="width:100%;transition:width 1s linear"></div></div>
-      <div id="monMsg" class="text-sm text-amber-300 h-5 mt-1"></div>
-    </div>
+/* ===== 資料層：雲端用 Firestore，沒設定時自動使用本機測試模式 ===== */
+const rpin=()=>String(crypto.getRandomValues(new Uint32Array(1))[0]%10000).padStart(4,"0");
+const newStu=i=>({name:"學生"+i,pin:rpin(),cash:0,pure:0,h:[],sh:0,cost:0,hist:[],day:"",dayState:"",otPend:0,otWeek:0,last:null});
+const fresh=()=>({week:0,students:Object.fromEntries([...Array(N)].map((_,i)=>[i+1,newStu(i+1)]))});
+let S=fresh(), V=JSON.parse(sessionStorage.v||'{"r":"login"}'), M=null, ref, dirty=false, err="", PW=false;
+const r2=x=>Math.round(x*100)/100, today=()=>new Date().toLocaleDateString("sv");
+const $=n=>"$"+r2(n).toLocaleString();
+const sg=n=>(n>0?"+":n<0?"-":"")+$(Math.abs(n));
+const isInc=v=>v&&typeof v==="object"&&"i" in v;
+const me=()=>S.students[V.id], P=()=>`students.${V.id}.`;
 
-    <div id="ropeBox" class="mt-4 px-1">
-      <div class="flex justify-between text-xs font-bold mb-1"><span class="text-sky-400">藍隊勝 ◀ +5</span><span class="text-rose-400">+5 ▶ 紅隊勝</span></div>
-      <div class="relative h-14 rounded-full bg-slate-800 overflow-hidden border-2 border-slate-600">
-        <div id="ropeB" class="absolute left-0 top-1/2 -translate-y-1/2 h-3 bg-sky-500" style="width:50%"></div>
-        <div id="ropeR" class="absolute right-0 top-1/2 -translate-y-1/2 h-3 bg-rose-500" style="width:50%"></div>
-        <div class="absolute left-1/2 top-0 h-full w-0.5 bg-white/60"></div>
-        <div id="knot" class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-amber-400 border-4 border-white text-2xl flex items-center justify-center shadow-lg" style="left:50%">🚩</div>
-      </div>
-      <div id="posTxt" class="text-center text-sm text-slate-300 mt-1">勢均力敵</div>
-    </div>
-
-    <div id="panels" class="grid grid-cols-2 gap-3 mt-4">
-      <div class="rounded-2xl p-3 bg-sky-950 border-2 border-sky-500">
-        <div class="flex justify-between font-bold text-sky-300"><span id="p0name">🔵 玩家一 · 藍隊</span><span>答對 <span id="sc0">0</span></span></div>
-        <div id="hint0" class="text-center text-lg sm:text-2xl font-bold my-3"></div>
-        <div id="opts0" class="grid gap-2"></div>
-      </div>
-      <div id="panel1" class="rounded-2xl p-3 bg-rose-950 border-2 border-rose-500">
-        <div class="flex justify-between font-bold text-rose-300"><span>🔴 玩家二 · 紅隊</span><span>答對 <span id="sc1">0</span></span></div>
-        <div id="hint1" class="text-center text-lg sm:text-2xl font-bold my-3"></div>
-        <div id="opts1" class="grid gap-2"></div>
-      </div>
-    </div>
-  </section>
-</div>
-
-<!-- 戰前複習 -->
-<div id="review" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-  <div class="bg-slate-800 rounded-3xl p-6 max-w-lg w-full border-2 border-amber-400">
-    <h2 class="text-2xl font-black text-amber-300 text-center">📖 戰前複習</h2>
-    <p id="revTitle" class="text-center mt-2 text-slate-200"></p>
-    <div id="revList" class="flex flex-wrap justify-center gap-2 my-4"></div>
-    <div class="flex gap-3">
-      <button id="revBack" class="flex-1 bg-slate-600 hover:bg-slate-500 rounded-xl py-3 font-bold">返回</button>
-      <button id="revSolo" class="flex-1 bg-violet-500 hover:bg-violet-400 rounded-xl py-3 font-black">單人打怪 👹</button>
-      <button id="revGo" class="flex-1 bg-emerald-500 hover:bg-emerald-400 rounded-xl py-3 font-black">雙人對戰 ⚔️</button>
-    </div>
-  </div>
-</div>
-
-<!-- 結算 -->
-<div id="result" class="hidden fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
-  <div class="bg-slate-800 rounded-3xl p-6 max-w-md w-full text-center border-2 border-amber-400">
-    <div class="text-6xl">🏆</div>
-    <h2 id="winTxt" class="text-3xl font-black mt-2"></h2>
-    <p id="winWhy" class="text-slate-300 mt-1"></p>
-    <div class="grid grid-cols-2 gap-3 my-4">
-      <div class="bg-sky-950 rounded-xl p-3"><div id="r0n" class="text-sky-300 font-bold">藍隊</div><div id="rs0" class="text-2xl font-black"></div></div>
-      <div class="bg-rose-950 rounded-xl p-3"><div id="r1n" class="text-rose-300 font-bold">紅隊</div><div id="rs1" class="text-2xl font-black"></div></div>
-    </div>
-    <div class="flex gap-3">
-      <button id="again" class="flex-1 bg-emerald-500 hover:bg-emerald-400 rounded-xl py-3 font-black">再玩一次</button>
-      <button id="toMenu" class="flex-1 bg-slate-600 hover:bg-slate-500 rounded-xl py-3 font-bold">回關卡選單</button>
-    </div>
-  </div>
-</div>
-
-<script>
-const $=id=>document.getElementById(id);
-const range=(a,b)=>Array.from({length:b-a+1},(_,i)=>a+i);
-const primes=range(2,100).filter(n=>{for(let i=2;i*i<=n;i++)if(n%i===0)return false;return true});
-const mult=k=>range(1,Math.floor(100/k)).map(i=>i*k);
-const LEVELS=[
- {name:"1~100 的質數",ask:"請選出質數",ans:primes,icon:"🔢",
-  pool:range(9,99).filter(n=>!primes.includes(n)&&n%2&&n%5)},
- ...[13,17,19,23].map(k=>({name:`100 以內 ${k} 的倍數`,ask:`請選出 ${k} 的倍數`,ans:mult(k),icon:"✖️",k}))
-];
-const MAXQ=15,MAXPOS=5,TIME=90;
-const SOLO_TIME=120,DMG=20,HEAL_WRONG=15,HEAL_SLOW=5,IDLE=6; // 單人模式參數
-const MONS=['👹','👾','🐉','🦖','👻'];
-let lv=null,S={};
-
-/* ---------- 音效 ---------- */
-let AC=null;
-function tone(f,d,type='sine',t0=0,v=.25){
-  try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
-  const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+t0;
-  o.type=type;o.frequency.value=f;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);
-  o.connect(g).connect(AC.destination);o.start(t);o.stop(t+d)}catch(e){}
-}
-const sndOk=()=>{tone(880,.18);tone(1320,.3,'sine',.12)};
-const sndBad=()=>{tone(180,.15,'square',0,.15);tone(180,.15,'square',.2,.15)};
-const sndWin=()=>[523,659,784,1047,784,1047,1318].forEach((f,i)=>tone(f,.28,'triangle',i*.14,.3));
-
-/* ---------- 關卡卡片 ---------- */
-LEVELS.forEach((L,i)=>{
-  const b=document.createElement('button');
-  b.className='card rounded-2xl p-4 text-center font-bold border-2 border-indigo-400 bg-indigo-900/60';
-  b.innerHTML=`<div class="text-4xl">${L.icon}</div><div class="text-sm text-indigo-200 mt-1">第 ${i+1} 關</div><div class="mt-1">${L.name}</div>`;
-  b.onclick=()=>openReview(i);
-  $('cards').appendChild(b);
-});
-
-function openReview(i){
-  lv=i;const L=LEVELS[i];AC=AC||null;
-  $('revTitle').textContent=`${L.name}（共 ${L.ans.length} 個）`;
-  $('revList').innerHTML=L.ans.map(n=>`<span class="bg-amber-400 text-slate-900 font-black rounded-lg px-3 py-1 text-lg">${n}</span>`).join('');
-  $('review').classList.remove('hidden');
-}
-$('revBack').onclick=()=>$('review').classList.add('hidden');
-$('revGo').onclick=()=>{$('review').classList.add('hidden');start('duo')};
-$('revSolo').onclick=()=>{$('review').classList.add('hidden');start('solo')};
-
-/* ---------- 遊戲 ---------- */
-const shuffle=a=>a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
-const pick=a=>a[Math.floor(Math.random()*a.length)];
-
-function distractors(L,correct){
-  let pool;
-  if(L.pool)pool=L.pool;
-  else{const near=new Set();L.ans.forEach(m=>[-3,-2,-1,1,2,3].forEach(d=>{const x=m+d;if(x>=1&&x<=100&&x%L.k)near.add(x)}));pool=[...near]}
-  return shuffle(pool).slice(0,2);
-}
-function newQ(p){
-  const L=LEVELS[lv],c=pick(L.ans),opts=shuffle([c,...distractors(L,c)]);
-  S.q[p]={c,opts};
-  $('hint'+p).textContent=L.ask;
-  const box=$('opts'+p);box.innerHTML='';
-  opts.forEach((n,i)=>{
-    const b=document.createElement('button');
-    b.className='opt rounded-2xl py-4 '+(p?'bg-rose-600 hover:bg-rose-500':'bg-sky-600 hover:bg-sky-500');
-    b.textContent=n;b.onclick=()=>answer(p,i);box.appendChild(b);
-  });
-}
-let mode='duo';
-function start(m){
-  mode=m||mode;clearInterval(S.timer);
-  const solo=mode==='solo';
-  S={mode,pos:0,cnt:[0,0],ok:[0,0],q:[],frozen:[false,false],t:solo?SOLO_TIME:TIME,run:true,hp:100,idle:0};
-  $('menu').classList.add('hidden');$('arena').classList.remove('hidden');$('result').classList.add('hidden');
-  $('lvlName').textContent=LEVELS[lv].name+(solo?'・單人打怪':'・雙人對戰');
-  $('ropeBox').classList.toggle('hidden',solo);$('monster').classList.toggle('hidden',!solo);
-  $('panel1').classList.toggle('hidden',solo);$('qWrap').classList.toggle('hidden',solo);
-  $('panels').className=solo?'grid grid-cols-1 max-w-md mx-auto gap-3 mt-4':'grid grid-cols-2 gap-3 mt-4';
-  $('p0name').textContent=solo?'🧑‍🎓 挑戰者':'🔵 玩家一 · 藍隊';
-  $('r0n').textContent=solo?'答題':'藍隊';$('r1n').textContent=solo?'用時':'紅隊';
-  $('monEmo').textContent=MONS[lv];
-  newQ(0);if(!solo)newQ(1);render();
-  S.timer=setInterval(()=>{
-    S.t--;$('time').textContent=S.t;
-    if(solo&&!S.frozen[0]&&S.run){S.idle++;
-      if(S.idle>=IDLE){S.idle=0;S.hp=Math.min(100,S.hp+HEAL_SLOW);hit('🐌 太慢了！怪物回血 +'+HEAL_SLOW,false);tone(300,.15,'square',0,.1)}
-      renderSolo()}
-    if(S.t<=0)finish('time')},1000);
-}
-function render(){
-  if(S.mode==='solo')return renderSolo();
-  const k=50+S.pos*9;
-  $('knot').style.left=k+'%';$('ropeB').style.width=k+'%';$('ropeR').style.width=(100-k)+'%';
-  $('posTxt').textContent=S.pos===0?'勢均力敵':(S.pos<0?`藍隊領先 ${-S.pos} 格`:`紅隊領先 ${S.pos} 格`);
-  $('sc0').textContent=S.ok[0];$('sc1').textContent=S.ok[1];
-  $('qNo').textContent=Math.min(MAXQ,Math.max(S.cnt[0],S.cnt[1])+1);
-  $('time').textContent=S.t;
-}
-function renderSolo(){
-  $('hpBar').style.width=S.hp+'%';
-  $('hpTxt').textContent=`怪物血量 ${S.hp}/100`;
-  $('idleBar').style.width=Math.max(0,(1-S.idle/IDLE)*100)+'%';
-  $('sc0').textContent=S.ok[0];$('time').textContent=S.t;
-}
-function hit(msg,good){
-  $('monMsg').textContent=msg;
-  const m=$('monEmo');m.style.animation='none';m.offsetHeight;
-  m.style.animation=(good?'shk':'hop')+' .4s';
-}
-function answerSolo(i){
-  if(!S.run||S.frozen[0])return;
-  const q=S.q[0],good=q.opts[i]===q.c,btns=$('opts0').children;
-  S.cnt[0]++;S.idle=0;
-  if(good){S.ok[0]++;S.hp=Math.max(0,S.hp-DMG);sndOk();btns[i].classList.add('ok');hit('💥 命中！怪物 -'+DMG,true)}
-  else{S.hp=Math.min(100,S.hp+HEAL_WRONG);sndBad();btns[i].classList.add('bad');S.frozen[0]=true;[...btns].forEach(b=>b.disabled=true);hit('💚 答錯了！怪物回血 +'+HEAL_WRONG,false)}
-  renderSolo();
-  if(S.hp<=0)return finish('win');
-  setTimeout(()=>{S.frozen[0]=false;if(S.run)newQ(0)},good?350:1000);
-}
-function finishSolo(why){
-  const win=why==='win';
-  $('winTxt').textContent=win?'🎉 擊敗怪物！':'💀 挑戰失敗';
-  $('winTxt').className='text-3xl font-black mt-2 '+(win?'text-emerald-400':'text-slate-300');
-  $('winWhy').textContent=win?'你成功把怪物打倒了！':'時間到了，怪物還有 '+S.hp+' 點血，再挑戰一次吧！';
-  $('rs0').textContent=`答對 ${S.ok[0]} / ${S.cnt[0]}`;
-  $('rs1').textContent=`${SOLO_TIME-S.t} 秒`;
-  win?sndWin():sndBad();
-  setTimeout(()=>$('result').classList.remove('hidden'),500);
-}
-function answer(p,i){
-  if(S.mode==='solo')return p===0?answerSolo(i):0;
-  if(!S.run||S.frozen[p])return;
-  const q=S.q[p],good=q.opts[i]===q.c,btns=$('opts'+p).children;
-  S.cnt[p]++;
-  const dir=p===0?-1:1; // 藍隊往左(負)，紅隊往右(正)
-  if(good){S.ok[p]++;S.pos+=dir;sndOk();btns[i].classList.add('ok')}
-  else{S.pos-=dir;sndBad();btns[i].classList.add('bad');S.frozen[p]=true;[...btns].forEach(b=>b.disabled=true)}
-  S.pos=Math.max(-MAXPOS,Math.min(MAXPOS,S.pos));
+async function save(u){
+  const c={};
+  for(const k in u){
+    const a=k.split("."),last=a.pop();let o=S;a.forEach(x=>o=o[x]);const v=u[k];
+    if(isInc(v)){o[last]=Math.round(((o[last]||0)+v.i)*1e4)/1e4;c[k]=CLOUD?increment(v.i):o[last]}
+    else{o[last]=v;c[k]=v}
+  }
+  try{ if(CLOUD) await updateDoc(ref,c); else localStorage.vault=JSON.stringify(S); }
+  catch(e){err="儲存失敗："+e.message;alert("儲存失敗，請再按一次，或請老師幫忙檢查網路")}
   render();
-  if(Math.abs(S.pos)>=MAXPOS)return finish('rope');
-  if(S.cnt[0]>=MAXQ&&S.cnt[1]>=MAXQ)return setTimeout(()=>finish('done'),400);
-  const delay=good?350:1000;
-  setTimeout(()=>{
-    S.frozen[p]=false;
-    if(!S.run)return;
-    if(S.cnt[p]>=MAXQ){$('hint'+p).textContent='✅ 已完成 15 題';$('opts'+p).innerHTML='';return}
-    newQ(p);
-  },delay);
 }
-function finish(why){
-  if(!S.run)return;S.run=false;clearInterval(S.timer);
-  if(S.mode==='solo')return finishSolo(why);
-  let w=S.pos<0?0:S.pos>0?1:-1;
-  $('winTxt').textContent=w<0?'🤝 平手！':(w===0?'🔵 藍隊獲勝！':'🔴 紅隊獲勝！');
-  $('winTxt').className='text-3xl font-black mt-2 '+(w<0?'text-amber-300':w===0?'text-sky-400':'text-rose-400');
-  $('winWhy').textContent=why==='rope'?'繩結被拉到臨界點，提前分出勝負！':why==='time'?'時間到，依繩結位置判定。':'15 題完成，依繩結位置判定。';
-  [0,1].forEach(p=>$('rs'+p).textContent=`答對 ${S.ok[p]} / ${S.cnt[p]}`);
-  $('winWhy').textContent+=`　最終繩位：${S.pos===0?'正中央':(S.pos<0?'藍方':'紅方')+Math.abs(S.pos)+'格'}`;
-  sndWin();
-  setTimeout(()=>$('result').classList.remove('hidden'),500);
+async function init(){
+  if(CLOUD){
+    try{
+      ref=doc(getFirestore(initializeApp(firebaseConfig)),"vault","main");
+      if(!(await getDoc(ref)).exists()) await setDoc(ref,fresh());
+      onSnapshot(ref,{includeMetadataChanges:true},s=>{S=s.data();PW=s.metadata.hasPendingWrites;softRender()},e=>{err="連線失敗："+e.message;render()});
+    }catch(e){err="Firebase 啟動失敗："+e.message;render()}
+  }else{ S=JSON.parse(localStorage.vault||"null")||fresh(); render(); }
 }
-$('again').onclick=()=>start();
-$('toMenu').onclick=()=>{$('result').classList.add('hidden');$('arena').classList.add('hidden');$('menu').classList.remove('hidden')};
-$('quit').onclick=()=>{S.run=false;clearInterval(S.timer);$('arena').classList.add('hidden');$('menu').classList.remove('hidden')};
+const softRender=()=>{const a=document.activeElement;(a?.tagName==="INPUT"&&a.value!==a.defaultValue)?dirty=true:render()};
+document.addEventListener("focusout",()=>{if(dirty){dirty=false;setTimeout(render,50)}});
+const go=v=>{V=v;sessionStorage.v=JSON.stringify(v);M=null;render()};
 
-document.addEventListener('keydown',e=>{
-  if(!S.run)return;
-  const k=e.key.toLowerCase(),m={a:[0,0],s:[0,1],d:[0,2],j:[1,0],k:[1,1],l:[1,2]}[k];
-  if(m)answer(m[0],m[1]);
-});
+/* ===== 學生動作 ===== */
+const A={};
+A.ask=(type,id)=>{M={type,id};render();setTimeout(()=>document.getElementById("mi")?.focus(),30)};
+A.close=()=>{M=null;render()};
+A.submit=()=>{
+  const v=document.getElementById("mi").value.trim();
+  if(M.type==="key"){ if(v===TEACHER_KEY){go({r:"teacher"});if(Object.values(S.students).some(s=>s.pin===DEF_PIN))A.rollAll(true)}else alert("金鑰不正確") }
+  else{ v===S.students[M.id].pin?go({r:"student",id:M.id}):alert("PIN 碼不正確，再試一次！") }
+};
+A.logout=()=>go({r:"login"});
+A.checkin=()=>{const s=me();
+  if(s.dayState==="pending")return alert("你還有任務在等老師核准喔！");
+  if(s.day===today())return;
+  save({[P()+"day"]:today(),[P()+"dayState"]:"pending"})};
+A.ot=()=>{const s=me();
+  if(s.day!==today())return alert("請先完成今日基本任務打卡");
+  if(s.otWeek+s.otPend>=OT_MAX)return alert("本週加班已達上限（最多 "+OT_MAX+" 單元），好好休息！");
+  save({[P()+"otPend"]:{i:1}})};
+A.buyH=(k,ti)=>{const s=me(),[tm]=TERMS[ti],w=S.week,n=Math.floor(+document.getElementById(k+tm).value);
+  if(!(n>0))return alert("請輸入大於 0 的金額");
+  if(n>s.cash)return alert("現金不足");
+  if(w+tm>10)return alert("會超過第 10 週，無法購買");
+  if(!confirm(`買入 ${$(n)}，到第 ${w+tm} 週才能領回，期間不能提前拿出。確定嗎？`))return;
+  save({[P()+"cash"]:{i:-n},[P()+"h"]:[...(s.h||[]),{k,t:tm,a:n,r:rate(k,ti,w),s:w,m:w+tm}]})};
+A.buyS=()=>{const s=me(),n=Math.floor(+document.getElementById("amt-s").value),pr=PR(S.week);
+  if(!(n>0))return alert("請輸入大於 0 的金額");
+  if(n>s.cash)return alert("現金不足");
+  const room=Math.max(0,Math.floor(net(s)*STOCK_CAP-(s.sh||0)*pr));
+  if(n>room)return alert(`分散投資規則：股市最多只能占總資產的 ${STOCK_CAP*100}%。\n你現在最多還能買 ${$(room)}，其餘請試試定存或債券！`);
+  save({[P()+"cash"]:{i:-n},[P()+"sh"]:{i:n/pr},[P()+"cost"]:{i:n}})};
+A.sellS=all=>{const s=me(),pr=PR(S.week),n=Math.floor(+document.getElementById("amt-s").value);
+  if(!(s.sh>0))return alert("你目前沒有持股");
+  if(all)return save({[P()+"cash"]:{i:r2(s.sh*pr)},[P()+"sh"]:0,[P()+"cost"]:0});
+  if(!(n>0))return alert("請輸入要賣出的金額，或按「全部賣出」");
+  if(n>r2(s.sh*pr))return alert("持股現值不足");
+  save({[P()+"cash"]:{i:n},[P()+"sh"]:{i:-n/pr},[P()+"cost"]:{i:-s.cost*n/(s.sh*pr)}})};
+
+/* ===== 老師動作 ===== */
+A.pay=()=>{const u={};let c=0;
+  for(const i in S.students){const s=S.students[i],p=`students.${i}.`;let amt=0;
+    if(s.dayState==="pending"){amt+=WAGE;u[p+"dayState"]="paid"}
+    if(s.otPend>0){amt+=s.otPend*WAGE;u[p+"otWeek"]={i:s.otPend};u[p+"otPend"]=0}
+    if(amt){u[p+"cash"]={i:amt};u[p+"pure"]={i:amt};c++}}
+  if(!c)return alert("目前沒有待審核項目");
+  if(confirm(`核准並發薪給 ${c} 位學生？`))save(u)};
+A.next=()=>{if(S.week>=10)return alert("10 週劇本已全部完成！");
+  const w=S.week+1,x=R[S.week];
+  if(!confirm(`推進到第 ${w} 週：${x.t}？全班定存、債券、股市將同步更新。`))return;
+  const u={week:w},p0=PR(S.week),p1=PR(w);
+  for(const i in S.students){const s=S.students[i],p=`students.${i}.`;let cash=0,dep=0,cp=0;const keep=[];
+    for(const h of s.h||[]){
+      if(h.k==="bond"){const c=r2(h.a*h.r/100);cash+=c;cp+=c;if(w===h.m)cash+=h.a;else keep.push(h)}
+      else if(w===h.m){const it=r2(h.a*h.r/100*h.t);dep+=it;cash+=h.a+it}
+      else keep.push(h)}
+    if(cash)u[p+"cash"]={i:r2(cash)};
+    const after=r2(s.cash+cash+keep.reduce((a,h)=>a+(h.k==="bond"?h.a:h.a*(1+h.r/100*(w-h.s))),0)+(s.sh||0)*p1);
+    u[p+"hist"]=[...(s.hist||[]),{w,n:after,p:s.pure}];u[p+"h"]=keep;u[p+"last"]={week:w,dep:r2(dep),bond:r2(cp),stock:r2((s.sh||0)*(p1-p0)),hs:(s.sh||0)>0};u[p+"otWeek"]=0}
+  save(u)};
+A.name=(i,v)=>save({[`students.${i}.name`]:v.trim()||"學生"+i});
+A.adj=i=>{const v=prompt(`調整 ${S.students[i].name} 的現金（可輸入負數，如 -50）`);
+  if(v===null||isNaN(+v)||+v===0)return;
+  save({[`students.${i}.cash`]:{i:+v},[`students.${i}.pure`]:{i:+v}})};
+A.pin=i=>{if(confirm(`為 ${S.students[i].name} 重新產生亂數 PIN？舊 PIN 會立刻失效。`))save({[`students.${i}.pin`]:rpin()})};
+A.rollAll=quiet=>{if(!quiet&&!confirm("為全班重新產生亂數 PIN？所有舊 PIN 會立刻失效。"))return;
+  const u={},used=new Set();for(const i in S.students){let x;do{x=rpin()}while(used.has(x));used.add(x);u[`students.${i}.pin`]=x}save(u)};
+A.reset=()=>{if(!confirm("重置整個遊戲？所有金額與週次歸零（姓名與 PIN 保留）。"))return;
+  const f=fresh();for(const i in f.students){f.students[i].name=S.students[i].name;f.students[i].pin=S.students[i].pin}
+  S=f;if(CLOUD)setDoc(ref,f);else localStorage.vault=JSON.stringify(f);render()};
+window.A=A;
+
+/* ===== 畫面 ===== */
+const PR=w=>{let p=100;for(let i=0;i<w;i++)p*=1+R[i].s/100;return r2(p)};
+const rate=(k,ti,w)=>Math.round(R[w][k==="dep"?"b":"d"]*MULT[k][ti]*1000)/1000;
+const hv=h=>h.k==="bond"?h.a:r2(h.a*(1+h.r/100*(S.week-h.s)));
+const net=s=>r2(s.cash+(s.h||[]).reduce((a,h)=>a+hv(h),0)+(s.sh||0)*PR(S.week));
+const chart=ps=>{const mn=Math.min(...ps)-3,mx=Math.max(...ps)+3,W=320,H=90,
+  px=i=>ps.length<2?W/2:8+i*(W-16)/(ps.length-1),py=v=>H-6-(v-mn)/(mx-mn)*(H-12);
+  return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-24"><polyline fill="none" stroke="#6B3F1D" stroke-width="3" stroke-linejoin="round" points="${ps.map((v,i)=>px(i)+","+py(v)).join(" ")}"/>${ps.map((v,i)=>`<circle cx="${px(i)}" cy="${py(v)}" r="4" fill="${i&&v<ps[i-1]?"#dc2626":i&&v>ps[i-1]?"#15803d":"#6B3F1D"}"/>`).join("")}</svg>`};
+function prod(s,k,name,desc){const w=S.week,mine=(s.h||[]).filter(h=>h.k===k),dep=k==="dep";
+  return `<section class="card p-5 mb-4"><h2 class="font-black text-lg">${name}</h2><p class="text-sm mb-3">${desc}</p>
+  <div class="grid sm:grid-cols-3 gap-3">${TERMS.map(([tm,label],ti)=>{const ok=w+tm<=10,r=ok?rate(k,ti,w):0;
+    return `<div class="rounded-2xl p-3 bg-cream border-2 border-sand"><div class="font-black">${label}（${tm} 週）</div>${ok?
+    `<div class="text-sm">${dep?"每週利率":"每週配息"} <b>${r}%</b></div>
+     <div class="text-xs mb-2">${dep?`到期共多 ${r2(r*tm)}%`:`每週領息，到期還本金`} ・ 第 ${w+tm} 週到期</div>
+     <input id="${k}${tm}" type="number" min="1" inputmode="numeric" placeholder="金額" class="w-full mb-2">
+     <button class="btn bg-lake w-full" onclick="A.buyH('${k}',${ti})">買入並鎖定</button>`:
+    `<div class="text-sm opacity-60 mt-2">會超過第 10 週，無法購買</div>`}</div>`}).join("")}</div>
+  ${mine.length?`<div class="mt-3 text-sm font-bold">我的${dep?"定存":"債券"}（🔒 到期前不能提前拿出）</div>`+mine.map(h=>`<div class="py-1 text-sm">${$(h.a)} ・ ${h.t} 週期 ・ ${h.r}% ・ 第 ${h.m} 週到期（還有 ${h.m-w} 週）・ ${dep?`預計領回 <b>${$(h.a*(1+h.r/100*h.t))}</b>`:`每週配息 <b>${$(h.a*h.r/100)}</b>`}</div>`).join(""):""}</section>`}
+function riskSec(s){const w=S.week,n=net(s),d=r2(n-s.pure),
+  ds=(s.hist||[]).map(x=>({w:x.w,d:r2(x.n-x.p),pc:x.p?r2((x.n-x.p)/x.p*100):0})),
+  lo=ds.reduce((a,x)=>!a||x.d<a.d?x:a,null),hi=ds.reduce((a,x)=>!a||x.d>a.d?x:a,null),
+  kd=new Set((s.h||[]).map(h=>h.k));if(s.sh>0)kd.add("stock");
+  return `<section class="card p-5 mb-4 ${w>=10?"bg-lake/30":""}"><h2 class="font-black text-lg mb-2">${w>=10?"🏁 最終結算":"🛡️ 風險紀錄"}</h2>
+  <div class="text-sm mb-1">分散度：持有 <b>${kd.size} / 3</b> 種商品 ${kd.size>=2?"🏅 分散投資達人":"（再多買一種，就能拿到徽章）"}</div>
+  ${lo?`<div class="p-3 rounded-xl ${lo.d<0?"bg-red-100":"bg-leaf"} my-2"><b>過程中最慘的一週：第 ${lo.w} 週</b><br>${lo.d<0?`身價比純現金少 <b class="down">${$(-lo.d)}（${lo.pc}%）</b>。那時如果你急需用錢，就只能認賠了。`:`那週身價仍比純現金多 ${$(lo.d)}，沒有出現虧損。`}</div>
+  <div class="text-sm">最高點：第 ${hi.w} 週，比純現金${hi.d>=0?"多":"少"} ${$(Math.abs(hi.d))}</div>`:`<div class="text-sm opacity-70">推進一週後，這裡會記錄你每週的賺賠，找出最慘的那一週。</div>`}
+  ${w>=10?`<div class="mt-2 font-black ${d>=0?"up":"down"}">最終身價 ${$(n)}，比純現金${d>=0?"多":"少"} ${$(Math.abs(d))}</div><p class="text-sm mt-2">想一想：你的成績是靠運氣，還是靠分散風險？如果歷史劇本不一樣，你的選擇還會一樣嗎？</p>`:""}</section>`}
+const worst=s=>(s.hist||[]).reduce((a,x)=>!a||x.n-x.p<a.d?{w:x.w,d:r2(x.n-x.p)}:a,null);
+function stockSec(s){const w=S.week,ps=[...Array(w+1)].map((_,i)=>PR(i)),pr=ps[w],
+  d1=w?r2((pr/ps[w-1]-1)*100):0,d3=w?r2((pr/ps[Math.max(0,w-3)]-1)*100):0,
+  tr=d3>2?["▲ 上升趨勢","up"]:d3<-2?["▼ 下跌趨勢","down"]:["－ 盤整震盪",""],
+  val=r2((s.sh||0)*pr),pl=r2(val-(s.cost||0)),pc=s.cost?r2(pl/s.cost*100):0;
+  return `<section class="card p-5 mb-4"><h2 class="font-black text-lg">🚀 股市／AI 科技大盤 ETF</h2>
+  <p class="text-sm mb-2">價格每週變動，可以隨時買賣。低買高賣才賺錢；買了之後下跌，就會虧損。</p>
+  <div class="flex flex-wrap items-end gap-x-4"><div class="text-4xl font-black">${pr}</div>
+  <div class="font-black ${d1>=0?"up":"down"}">${w?(d1>=0?"▲ ":"▼ ")+Math.abs(d1)+"% 本週":"尚未開盤變動"}</div><div class="font-black ${tr[1]}">${tr[0]}</div></div>
+  ${chart(ps)}
+  <div class="grid grid-cols-3 gap-2 my-3 text-center text-sm"><div class="rounded-xl bg-cream p-2">持有<br><b>${r2(s.sh||0)} 單位</b></div>
+  <div class="rounded-xl bg-cream p-2">現值<br><b>${$(val)}</b></div>
+  <div class="rounded-xl p-2 ${pl>=0?"bg-leaf up":"bg-red-100 down"}">損益<br><b>${pl>=0?"▲ ":"▼ "}${$(Math.abs(pl))}（${pc}%）</b></div></div>
+  <div class="text-sm mb-2">股市占總資產 <b>${net(s)?r2(val/net(s)*100):0}%</b>（買進上限 ${STOCK_CAP*100}%，要分散投資喔）</div>
+  <div class="flex flex-wrap gap-2"><input id="amt-s" type="number" min="1" inputmode="numeric" placeholder="金額" class="flex-1 min-w-24">
+  <button class="btn bg-lake" onclick="A.buyS()">買進</button><button class="btn bg-sand" onclick="A.sellS(false)">賣出</button><button class="btn bg-cream border-2 border-sand" onclick="A.sellS(true)">全部賣出</button></div></section>`}
+const chg=(label,v,held)=>{
+  if(!held)return `<div class="flex justify-between py-1"><span>${label}</span><span class="opacity-50">本週未持有</span></div>`;
+  const c=v>0?"up":v<0?"down":"";
+  return `<div class="flex justify-between py-1"><span>${label}</span><b class="${c}">${v>0?"▲":v<0?"▼":"－"} ${sg(v)}</b></div>`};
+
+function loginView(){
+  return `<header class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-black">🏛️ 數學理財金庫</h1>
+    <button class="btn bg-ink text-cream" onclick="A.ask('key')">導師後台</button></header>
+  <p class="mb-4 font-medium">請點選你的座號，輸入老師給你的 4 位數 PIN 碼</p>
+  <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+  ${Object.entries(S.students).map(([i,s])=>`<button class="card p-4 text-center hover:bg-leaf" onclick="A.ask('pin',${i})">
+    <div class="text-3xl font-black">${i}</div><div class="truncate">${s.name}</div></button>`).join("")}</div>`}
+
+function studentView(){
+  const s=me(),n=net(s),diff=r2(n-s.pure),w=S.week,L=s.last;
+  const done=s.day===today(), st=s.dayState;
+  const badge=st==="pending"?"⏳ 待老師審核":st==="paid"?"✅ 已發薪":"尚未打卡";
+  const left=OT_MAX-s.otWeek-s.otPend;
+  return `<header class="flex justify-between items-center mb-4">
+    <div><div class="text-sm">${V.id} 號</div><h1 class="text-3xl font-black">${s.name} 的金庫</h1></div>
+    <button class="btn bg-sand" onclick="A.logout()">登出</button></header>
+
+  <div class="flex gap-1 mb-4" title="第 ${w} / 10 週">${R.map((_,i)=>`<div class="h-3 flex-1 rounded-full ${i<w?"bg-ink":"bg-sand"}"></div>`).join("")}</div>
+
+  <section class="grid sm:grid-cols-2 gap-4 mb-4">
+    <div class="card p-5 bg-sand/40"><div class="font-bold">💰 現金保底總額</div>
+      <div class="text-4xl font-black mt-1">${$(s.pure)}</div><div class="text-sm mt-1">完全不理財、只領薪水的累積</div></div>
+    <div class="card p-5 bg-lake/40"><div class="font-bold">🚀 實際投資身價</div>
+      <div class="text-4xl font-black mt-1">${$(n)}</div>
+      <div class="text-sm mt-1 font-bold ${diff>=0?"up":"down"}">${diff>=0?"▲ 比純現金多":"▼ 比純現金少"} ${$(Math.abs(diff))}</div></div>
+  </section>
+
+  ${L?`<section class="card p-5 mb-4">
+    <div class="font-black text-lg mb-1">第 ${L.week} 週成績：${R[L.week-1].t}</div>
+    <p class="mb-2 text-sm">${R[L.week-1].n}</p>
+    ${chg("🏦 定存到期利息",L.dep||0,(L.dep||0)!==0)}${chg("📜 債券配息",L.bond||0,(L.bond||0)!==0)}${chg("🚀 股市賺賠",L.stock||0,L.hs)}
+    ${L.stock<0?`<div class="mt-2 p-2 rounded-lg bg-red-100 down font-bold">⚠️ 股市下跌！你的股票資產減少 ${$(-L.stock)}</div>`:""}
+    ${L.stock>0?`<div class="mt-2 p-2 rounded-lg bg-leaf up font-bold">🎉 股市上漲！你的股票資產增加 ${$(L.stock)}</div>`:""}
+  </section>`:`<section class="card p-5 mb-4 bg-leaf/60">老師按下「推進到下一週」後，這裡會顯示本週的投資成績。</section>`}
+
+  <section class="card p-5 mb-4">
+    <h2 class="font-black text-lg mb-3">📋 今日打卡 <span class="text-sm font-medium">（${badge}）</span></h2>
+    <div class="grid sm:grid-cols-2 gap-3">
+      <button class="btn bg-leaf" ${done&&st!==""&&st!=="x"?"disabled":""} onclick="A.checkin()">回報今日均一任務完成<br><span class="text-sm">+${$(WAGE)}</span></button>
+      <button class="btn bg-sand" ${left<=0||!done?"disabled":""} onclick="A.ot()">申請今日加班（超額任務）<br><span class="text-sm">+${$(WAGE)}／單元 ・ 本週還可申請 ${Math.max(left,0)} 次${s.otPend?` ・ 待審 ${s.otPend}`:""}</span></button>
+    </div></section>
+
+  <div class="card p-4 mb-4 bg-sand/40 font-black text-lg">👛 可用現金：${$(s.cash)}</div>
+  ${prod(s,"dep","🏦 銀行定存","把錢存進銀行，約定存幾週。時間到了連本帶利領回；期數越長，利率越高，但中途不能領出。")}
+  ${prod(s,"bond","📜 保守型債券","債券是「借錢給政府或大公司」：對方每週付你利息（配息），到期再還本金。風險低、利息比定存高，同樣到期前不能賣出。")}
+  ${stockSec(s)}
+  ${riskSec(s)}
+
+  ${w?`<section class="card p-5"><h2 class="font-black text-lg mb-2">📰 市場回顧</h2>
+    ${R.slice(0,w).map((x,i)=>`<div class="py-1 text-sm">第 ${i+1} 週 ${x.t}　股市 <b class="${x.s>=0?"up":"down"}">${x.s>=0?"▲ +":"▼ "}${x.s}%</b></div>`).join("")}</section>`:""}`}
+
+function teacherView(){
+  const rows=Object.entries(S.students),pend=rows.filter(([,s])=>s.dayState==="pending").length;
+  const otp=rows.reduce((a,[,s])=>a+s.otPend,0),w=S.week;
+  return `<header class="flex flex-wrap gap-2 justify-between items-center mb-4">
+    <h1 class="text-3xl font-black">👩‍🏫 導師後台</h1>
+    <button class="btn bg-sand" onclick="A.logout()">登出</button></header>
+  <section class="card p-5 mb-4 flex flex-wrap gap-3 items-center">
+    <div class="mr-auto"><div class="font-black text-lg">第 ${w} / 10 週 ${w?"・ "+R[w-1].t:"・ 尚未開始"}</div>
+      <div class="text-sm">待審核打卡 ${pend} 人、加班 ${otp} 單元${w<10?`　下一週：${R[w].t}`:"　已結算"}</div></div>
+    <button class="btn bg-leaf" onclick="A.pay()">一鍵批次發薪</button>
+    <button class="btn bg-lake" ${w>=10?"disabled":""} onclick="A.next()">推進到下一週</button>
+    <button class="btn bg-sand" onclick="A.rollAll()">🎲 全班換 PIN</button>
+    <button class="btn bg-red-100 down" onclick="A.reset()">重置遊戲</button></section>
+  <section class="card p-3 overflow-x-auto"><table class="w-full text-sm text-left whitespace-nowrap">
+    <thead><tr class="border-b-2 border-sand"><th class="p-2">座號</th><th>姓名</th><th>今日打卡</th><th>加班</th><th>現金</th><th>純現金</th><th>PIN</th><th>實際身價</th><th>最慘一週</th><th>微調</th></tr></thead><tbody>
+    ${rows.map(([i,s])=>{const t=s.day===today();
+      const b=s.dayState==="pending"?'<span class="px-2 rounded-full bg-sand">待審核</span>':s.dayState==="paid"&&t?'<span class="px-2 rounded-full bg-leaf">已完成</span>':'<span class="opacity-50">未打卡</span>';
+      return `<tr class="border-b border-sand/60"><td class="p-2 font-black">${i}</td>
+      <td><input value="${s.name}" class="w-28" onchange="A.name(${i},this.value)"></td><td>${b}</td>
+      <td>${s.otWeek}/${OT_MAX}${s.otPend?` <b>(+${s.otPend}待審)</b>`:""}</td>
+      <td>${$(s.cash)}</td><td>${$(s.pure)}</td><td class="font-black tracking-widest bg-cream">${s.pin}</td><td class="font-bold ${net(s)>=s.pure?"up":"down"}">${$(net(s))}</td><td>${(()=>{const x=worst(s);return x?`<span class="${x.d<0?"down":"up"}">第${x.w}週 ${x.d>=0?"+":"-"}${$(Math.abs(x.d))}</span>`:"－"})()}</td>
+      <td><button class="btn bg-sand !py-1" onclick="A.adj(${i})">±現金</button> <button class="btn bg-cream !py-1 border-2 border-sand" onclick="A.pin(${i})">🎲 換PIN</button></td></tr>`}).join("")}
+    </tbody></table></section>
+  <p class="text-xs mt-3">「±現金」會同時調整現金與純現金保底，維持兩條資產線公平比較。PIN 欄只有導師後台看得到，學生忘記時請查這裡。</p>`}
+
+function render(){
+  const modal=M?`<div class="fixed inset-0 bg-ink/50 flex items-center justify-center p-4 z-10">
+    <div class="card p-6 w-full max-w-xs"><h2 class="font-black text-lg mb-3">${M.type==="key"?"導師金鑰":S.students[M.id].name+"，請輸入 PIN"}</h2>
+    <input id="mi" type="password" inputmode="numeric" class="w-full mb-3 text-center text-2xl tracking-widest" onkeydown="if(event.key==='Enter')A.submit()">
+    <div class="flex gap-2"><button class="btn bg-sand flex-1" onclick="A.close()">取消</button><button class="btn bg-ink text-cream flex-1" onclick="A.submit()">進入</button></div></div></div>`:"";
+  const bar=`<div class="text-xs mb-3 ${CLOUD?"":"p-2 rounded-lg bg-sand"}">${CLOUD?(PW?"⏳ 資料傳送中，請先不要關掉頁面…":"☁️ 已連線雲端同步"):"⚠️ 本機測試模式：尚未設定 Firebase，資料只存在這台電腦"}${err?` <b class="down">${err}</b>`:""}</div>`;
+  const body=V.r==="teacher"?teacherView():V.r==="student"&&S.students[V.id]?studentView():loginView();
+  document.getElementById("app").innerHTML=bar+body+modal;
+}
+init();
 </script>
 </body>
 </html>
